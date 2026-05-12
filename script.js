@@ -1,5 +1,6 @@
 document.addEventListener('DOMContentLoaded', () => {
     const editor = new NodeEditor();
+    const history = new HistoryManager();
     
     // UI Elements
     const addNodeBtn = document.getElementById('add-node');
@@ -48,6 +49,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     window.addEventListener('node-deleted', () => {
         autoSave();
+        pushHistory();
     });
 
     // Form Change Handlers
@@ -60,6 +62,7 @@ document.addEventListener('DOMContentLoaded', () => {
         currentNode.updateElement();
         editor.renderConnections();
         autoSave();
+        pushHistory();
     };
 
     [inputSpeaker, inputText, inputBg, inputChar].forEach(input => {
@@ -153,6 +156,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const state = JSON.parse(event.target.result);
                 editor.loadFullState(state);
                 autoSave();
+                pushHistory();
             } catch (err) {
                 alert('Failed to parse file: ' + err.message);
             }
@@ -170,6 +174,28 @@ document.addEventListener('DOMContentLoaded', () => {
     function autoSave() {
         const state = editor.getFullState();
         localStorage.setItem('vn_flow_temp_data', JSON.stringify(state));
+        localStorage.setItem('vn_flow_history', JSON.stringify(history.exportForStorage()));
+    }
+
+    function pushHistory() {
+        const state = editor.getFullState();
+        history.push(state);
+    }
+
+    function undo() {
+        const prevState = history.undo();
+        if (prevState) {
+            editor.loadFullState(prevState);
+            autoSave();
+        }
+    }
+
+    function redo() {
+        const nextState = history.redo();
+        if (nextState) {
+            editor.loadFullState(nextState);
+            autoSave();
+        }
     }
 
     function restore() {
@@ -179,7 +205,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 const state = JSON.parse(saved);
                 editor.loadFullState(state);
             } catch (err) {
-                console.error('Failed to restore:', err);
+                console.error('Failed to restore state:', err);
+            }
+        }
+
+        const savedHistory = localStorage.getItem('vn_flow_history');
+        if (savedHistory) {
+            try {
+                const historyData = JSON.parse(savedHistory);
+                history.loadFromStorage(historyData);
+            } catch (err) {
+                console.error('Failed to restore history:', err);
             }
         }
     }
@@ -199,7 +235,10 @@ document.addEventListener('DOMContentLoaded', () => {
     window.addEventListener('mouseup', () => {
         if (editor.isDragging || editor.isLinking) {
             // Wait for next tick to ensure state is updated
-            setTimeout(autoSave, 0);
+            setTimeout(() => {
+                autoSave();
+                pushHistory();
+            }, 0);
         }
     });
 
@@ -224,6 +263,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const node = editor.addNode(lastMousePos.x - 50, lastMousePos.y - 20);
             editor.selectNode(node.id);
             autoSave();
+            pushHistory();
         } else if (key === 'c') {
             if (editor.selectedNodeId) {
                 const node = editor.nodes.get(editor.selectedNodeId);
@@ -250,6 +290,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 node.updateElement();
                 editor.selectNode(node.id);
                 autoSave();
+                pushHistory();
                 console.log('Node pasted at', lastMousePos);
             }
         } else if (key === 's') {
@@ -258,10 +299,19 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (key === 'e') {
             e.preventDefault();
             exportTxtBtn.click();
+        } else if (key === 'z' && e.ctrlKey) {
+            e.preventDefault();
+            if (e.shiftKey) {
+                redo();
+            } else {
+                undo();
+            }
         } else if (key === 'delete' || key === 'backspace') {
             if (editor.selectedNodeId) {
                 e.preventDefault();
                 editor.deleteNode(editor.selectedNodeId);
+                autoSave();
+                pushHistory();
             }
         }
     });
@@ -272,4 +322,6 @@ document.addEventListener('DOMContentLoaded', () => {
         editor.addNode(100, 100);
         editor.selectNode(1);
     }
+    // Initial push to history
+    pushHistory();
 });
