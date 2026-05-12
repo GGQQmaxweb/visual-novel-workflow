@@ -211,6 +211,8 @@ document.addEventListener('DOMContentLoaded', () => {
         lastMousePos.y = e.clientY - rect.top;
     });
 
+    let copiedNodeData = null;
+
     window.addEventListener('keydown', (e) => {
         // Ignore if user is typing in an input
         if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
@@ -222,6 +224,34 @@ document.addEventListener('DOMContentLoaded', () => {
             const node = editor.addNode(lastMousePos.x - 50, lastMousePos.y - 20);
             editor.selectNode(node.id);
             autoSave();
+        } else if (key === 'c') {
+            if (editor.selectedNodeId) {
+                const node = editor.nodes.get(editor.selectedNodeId);
+                copiedNodeData = {
+                    speaker: node.speaker,
+                    text: node.text,
+                    image: node.image,
+                    character: node.character,
+                    options: JSON.parse(JSON.stringify(node.options))
+                };
+                // Reset next links in copied options
+                copiedNodeData.options.forEach(opt => opt.nextText = null);
+                console.log('Node copied:', copiedNodeData);
+            }
+        } else if (key === 'p') {
+            if (copiedNodeData) {
+                e.preventDefault();
+                const node = editor.addNode(lastMousePos.x - 50, lastMousePos.y - 20);
+                node.speaker = copiedNodeData.speaker;
+                node.text = copiedNodeData.text;
+                node.image = copiedNodeData.image;
+                node.character = copiedNodeData.character;
+                node.options = JSON.parse(JSON.stringify(copiedNodeData.options));
+                node.updateElement();
+                editor.selectNode(node.id);
+                autoSave();
+                console.log('Node pasted at', lastMousePos);
+            }
         } else if (key === 's') {
             e.preventDefault();
             saveJsonBtn.click();
