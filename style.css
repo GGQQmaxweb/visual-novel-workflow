@@ -415,3 +415,31 @@ input:focus, textarea:focus {
     justify-content: flex-end;
     gap: 12px;
 }
+
+#shortcuts-legend {
+    position: fixed;
+    bottom: 24px;
+    left: 24px;
+    padding: 10px 16px;
+    border-radius: 12px;
+    display: flex;
+    gap: 16px;
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    z-index: 100;
+    pointer-events: none;
+}
+
+#shortcuts-legend span {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+#shortcuts-legend strong {
+    background: rgba(255, 255, 255, 0.1);
+    padding: 2px 6px;
+    border-radius: 4px;
+    color: var(--text-main);
+    border: 1px solid var(--border-color);
+}

@@ -203,6 +203,39 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // Keyboard Shortcuts
+    let lastMousePos = { x: 100, y: 100 };
+    window.addEventListener('mousemove', (e) => {
+        const rect = editor.canvas.getBoundingClientRect();
+        lastMousePos.x = e.clientX - rect.left;
+        lastMousePos.y = e.clientY - rect.top;
+    });
+
+    window.addEventListener('keydown', (e) => {
+        // Ignore if user is typing in an input
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+        const key = e.key.toLowerCase();
+        
+        if (key === 'n') {
+            e.preventDefault();
+            const node = editor.addNode(lastMousePos.x - 50, lastMousePos.y - 20);
+            editor.selectNode(node.id);
+            autoSave();
+        } else if (key === 's') {
+            e.preventDefault();
+            saveJsonBtn.click();
+        } else if (key === 'e') {
+            e.preventDefault();
+            exportTxtBtn.click();
+        } else if (key === 'delete' || key === 'backspace') {
+            if (editor.selectedNodeId) {
+                e.preventDefault();
+                editor.deleteNode(editor.selectedNodeId);
+            }
+        }
+    });
+
     // Initial State
     restore();
     if (editor.nodes.size === 0) {
