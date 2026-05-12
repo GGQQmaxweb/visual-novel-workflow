@@ -3,7 +3,11 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // UI Elements
     const addNodeBtn = document.getElementById('add-node');
-    const exportBtn = document.getElementById('export-btn');
+    const saveJsonBtn = document.getElementById('save-json');
+    const importBtn = document.getElementById('import-btn');
+    const exportTxtBtn = document.getElementById('export-txt');
+    const fileInput = document.getElementById('file-input');
+    
     const propertiesPanel = document.getElementById('properties-panel');
     const noSelectionMsg = document.getElementById('no-selection-msg');
     const nodeForm = document.getElementById('node-form');
@@ -25,6 +29,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // Node Selection Handler
     window.addEventListener('node-selected', (e) => {
         currentNode = e.detail;
+        if (!currentNode) {
+            noSelectionMsg.classList.remove('hidden');
+            nodeForm.classList.add('hidden');
+            return;
+        }
         noSelectionMsg.classList.add('hidden');
         nodeForm.classList.remove('hidden');
         
@@ -37,6 +46,10 @@ document.addEventListener('DOMContentLoaded', () => {
         renderOptionsEditor();
     });
 
+    window.addEventListener('node-deleted', () => {
+        autoSave();
+    });
+
     // Form Change Handlers
     const updateNode = () => {
         if (!currentNode) return;
@@ -46,6 +59,7 @@ document.addEventListener('DOMContentLoaded', () => {
         currentNode.character = inputChar.value;
         currentNode.updateElement();
         editor.renderConnections();
+        autoSave();
     };
 
     [inputSpeaker, inputText, inputBg, inputChar].forEach(input => {
@@ -112,13 +126,63 @@ document.addEventListener('DOMContentLoaded', () => {
         const y = editor.container.scrollTop + 50;
         const node = editor.addNode(x, y);
         editor.selectNode(node.id);
+        autoSave();
     });
 
-    exportBtn.addEventListener('click', () => {
+    saveJsonBtn.addEventListener('click', () => {
+        const state = editor.getFullState();
+        const blob = new Blob([JSON.stringify(state, null, 4)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `vn_flow_${new Date().toISOString().split('T')[0]}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+    });
+
+    importBtn.addEventListener('click', () => {
+        fileInput.click();
+    });
+
+    fileInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            try {
+                const state = JSON.parse(event.target.result);
+                editor.loadFullState(state);
+                autoSave();
+            } catch (err) {
+                alert('Failed to parse file: ' + err.message);
+            }
+        };
+        reader.readAsText(file);
+    });
+
+    exportTxtBtn.addEventListener('click', () => {
         const data = editor.exportData();
         exportOutput.textContent = data;
         exportModal.classList.remove('hidden');
     });
+
+    // Auto-save & Restore
+    function autoSave() {
+        const state = editor.getFullState();
+        localStorage.setItem('vn_flow_temp_data', JSON.stringify(state));
+    }
+
+    function restore() {
+        const saved = localStorage.getItem('vn_flow_temp_data');
+        if (saved) {
+            try {
+                const state = JSON.parse(saved);
+                editor.loadFullState(state);
+            } catch (err) {
+                console.error('Failed to restore:', err);
+            }
+        }
+    }
 
     // Modal Actions
     closeModal.addEventListener('click', () => {
@@ -131,6 +195,18 @@ document.addEventListener('DOMContentLoaded', () => {
         setTimeout(() => copyBtn.textContent = 'Copy to Clipboard', 2000);
     });
 
+    // Global listeners for auto-save
+    window.addEventListener('mouseup', () => {
+        if (editor.isDragging || editor.isLinking) {
+            // Wait for next tick to ensure state is updated
+            setTimeout(autoSave, 0);
+        }
+    });
+
     // Initial State
-    editor.selectNode(1);
+    restore();
+    if (editor.nodes.size === 0) {
+        editor.addNode(100, 100);
+        editor.selectNode(1);
+    }
 });

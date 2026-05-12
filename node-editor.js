@@ -26,6 +26,7 @@ class VNNode {
             <div class="node-header">
                 <span class="node-id">#${this.id}</span>
                 <span class="node-speaker"></span>
+                <button class="node-delete">×</button>
             </div>
             <div class="node-content"></div>
             <div class="node-outputs"></div>
@@ -104,24 +105,8 @@ class NodeEditor {
         const node = new VNNode(this.nextNodeId++, x, y);
         this.nodes.set(node.id, node);
         this.canvas.appendChild(node.element);
-
-        node.element.addEventListener('mousedown', (e) => {
-            if (e.target.classList.contains('port-handle')) {
-                this.startLinking(e, node, e.target);
-            } else {
-                this.startDragging(e, node);
-            }
-            this.selectNode(node.id);
-            e.stopPropagation();
-        });
-
-        // Target for linking
-        node.element.querySelector('.input-handle').addEventListener('mouseup', (e) => {
-            if (this.isLinking) {
-                this.completeLink(node.id);
-                e.stopPropagation();
-            }
-        });
+        
+        this.setupNodeEvents(node);
 
         return node;
     }
@@ -286,6 +271,158 @@ class NodeEditor {
         };
     }
 
+    getFullState() {
+        const nodes = Array.from(this.nodes.values()).map(node => ({
+            id: node.id,
+            x: node.x,
+            y: node.y,
+            speaker: node.speaker,
+            text: node.text,
+            image: node.image,
+            character: node.character,
+            options: node.options,
+            nextText: node.nextText
+        }));
+        return {
+            nodes,
+            connections: this.connections,
+            nextNodeId: this.nextNodeId
+        };
+    }
+
+    loadFullState(state) {
+        if (!state) return;
+
+        this.clear();
+        
+        // Handle raw VN data (array) or full editor state (object)
+        let nodesData = [];
+        let connections = [];
+        
+        if (Array.isArray(state)) {
+            // Raw VN data - need to auto-layout
+            nodesData = state.map((n, i) => ({
+                ...n,
+                x: 100 + (i % 3) * 300,
+                y: 100 + Math.floor(i / 3) * 250
+            }));
+            
+            // Reconstruct connections from raw data
+            state.forEach(n => {
+                if (n.options) {
+                    n.options.forEach((opt, idx) => {
+                        if (opt.nextText) {
+                            connections.push({
+                                fromId: n.id,
+                                toId: opt.nextText,
+                                type: 'option',
+                                optionIndex: idx
+                            });
+                        }
+                    });
+                } else if (n.nextText) {
+                    connections.push({
+                        fromId: n.id,
+                        toId: n.nextText,
+                        type: 'next'
+                    });
+                }
+            });
+            this.nextNodeId = Math.max(...state.map(n => n.id), 0) + 1;
+        } else {
+            // Full editor state
+            nodesData = state.nodes || [];
+            connections = state.connections || [];
+            this.nextNodeId = state.nextNodeId || 1;
+        }
+
+        nodesData.forEach(n => {
+            const node = new VNNode(n.id, n.x, n.y);
+            node.speaker = n.speaker || "???";
+            node.text = n.text || "";
+            node.image = n.image || "";
+            node.character = n.character || "";
+            node.options = n.options || [];
+            node.nextText = n.nextText || null;
+            
+            this.nodes.set(node.id, node);
+            this.canvas.appendChild(node.element);
+            this.setupNodeEvents(node);
+            node.updateElement();
+        });
+
+        this.connections = connections;
+        this.renderConnections();
+        
+        if (this.nodes.size > 0) {
+            const firstId = Array.from(this.nodes.keys())[0];
+            this.selectNode(firstId);
+        }
+    }
+
+    clear() {
+        this.nodes.forEach(node => node.element.remove());
+        this.nodes.clear();
+        this.connections = [];
+        this.svg.innerHTML = '';
+        this.selectedNodeId = null;
+    }
+
+    setupNodeEvents(node) {
+        node.element.addEventListener('mousedown', (e) => {
+            if (e.target.classList.contains('port-handle')) {
+                this.startLinking(e, node, e.target);
+            } else {
+                this.startDragging(e, node);
+            }
+            this.selectNode(node.id);
+            e.stopPropagation();
+        });
+
+        node.element.querySelector('.input-handle').addEventListener('mouseup', (e) => {
+            if (this.isLinking) {
+                this.completeLink(node.id);
+                e.stopPropagation();
+            }
+        });
+
+        // Delete button
+        node.element.querySelector('.node-delete').addEventListener('mousedown', (e) => {
+            e.stopPropagation();
+            this.deleteNode(node.id);
+        });
+
+        return node;
+    }
+
+    deleteNode(id) {
+        const node = this.nodes.get(id);
+        if (!node) return;
+        
+        node.element.remove();
+        this.nodes.delete(id);
+        
+        // Remove associated connections
+        this.connections = this.connections.filter(c => c.fromId !== id && c.toId !== id);
+        
+        // Update nodes data (links)
+        this.nodes.forEach(n => {
+            if (n.nextText === id) n.nextText = null;
+            n.options.forEach(opt => {
+                if (opt.nextText === id) opt.nextText = null;
+            });
+            n.updateElement();
+        });
+
+        if (this.selectedNodeId === id) {
+            this.selectedNodeId = null;
+            window.dispatchEvent(new CustomEvent('node-selected', { detail: null }));
+        }
+        
+        this.renderConnections();
+        window.dispatchEvent(new CustomEvent('node-deleted'));
+    }
+
     exportData() {
         const data = Array.from(this.nodes.values()).map(node => {
             const item = {
@@ -295,7 +432,7 @@ class NodeEditor {
                 image: node.image,
                 character: node.character
             };
-
+            
             if (node.options.length > 0) {
                 item.options = node.options.map(opt => ({
                     text: opt.text,
@@ -304,7 +441,7 @@ class NodeEditor {
             } else if (node.nextText) {
                 item.nextText = node.nextText;
             }
-
+            
             return item;
         });
         return JSON.stringify(data, null, 4);
