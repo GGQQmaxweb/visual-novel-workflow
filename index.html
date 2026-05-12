@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visual Novel Workflow Editor</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=Outfit:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div id="app">
+        <header class="glass">
+            <div class="logo">VN Flow</div>
+            <div class="actions">
+                <button id="add-node" class="btn primary">Add Block</button>
+                <button id="export-btn" class="btn secondary">Export TXT</button>
+            </div>
+        </header>
+
+        <main>
+            <div id="canvas-container">
+                <div id="canvas">
+                    <svg id="svg-connections"></svg>
+                    <!-- Nodes will be added here -->
+                </div>
+            </div>
+
+            <aside id="properties-panel" class="glass">
+                <div class="panel-content">
+                    <h2>Node Settings</h2>
+                    <div id="no-selection-msg">Select a block to edit</div>
+                    <form id="node-form" class="hidden">
+                        <div class="form-group">
+                            <label>Speaker</label>
+                            <input type="text" id="node-speaker" placeholder="e.g. Mysterious Girl">
+                        </div>
+                        <div class="form-group">
+                            <label>Text</label>
+                            <textarea id="node-text" rows="4" placeholder="Enter dialogue text..."></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label>Background URL</label>
+                            <input type="text" id="node-bg" placeholder="https://...">
+                        </div>
+                        <div class="form-group">
+                            <label>Character URL</label>
+                            <input type="text" id="node-char" placeholder="https://...">
+                        </div>
+                        <div class="options-section">
+                            <div class="section-header">
+                                <label>Options</label>
+                                <button type="button" id="add-option" class="btn-icon">+</button>
+                            </div>
+                            <div id="options-list"></div>
+                        </div>
+                    </form>
+                </div>
+            </aside>
+        </main>
+
+        <div id="export-modal" class="modal hidden">
+            <div class="modal-content glass">
+                <h3>Exported Workflow</h3>
+                <pre id="export-output"></pre>
+                <div class="modal-actions">
+                    <button id="copy-btn" class="btn secondary">Copy to Clipboard</button>
+                    <button id="close-modal" class="btn primary">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="node-editor.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
