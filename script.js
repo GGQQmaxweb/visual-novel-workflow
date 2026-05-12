@@ -278,7 +278,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 copiedNodeData.options.forEach(opt => opt.nextText = null);
                 console.log('Node copied:', copiedNodeData);
             }
-        } else if (key === 'p') {
+        } else if (key === 'p' || key === 'v') {
             if (copiedNodeData) {
                 e.preventDefault();
                 const node = editor.addNode(lastMousePos.x - 50, lastMousePos.y - 20);
